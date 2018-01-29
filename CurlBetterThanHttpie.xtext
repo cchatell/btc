@@ -62,7 +62,7 @@ Item returns Item:
 	FormFileFieldItem | DataFieldItem | HttpHeaderItem | UrlParameterItem | RawJsonFieldItem;
 
 FormFileFieldItem returns FormFileFieldItem:
-	field=BASIC_STRING '@' value=BASIC_STRING;
+	field=BASIC_STRING '@' value=STRING_URL;
 
 DataFieldItem returns DataFieldItem:
 	field=BASIC_STRING '=' (value=BASIC_STRING | '@' value=BASIC_STRING);

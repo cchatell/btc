@@ -16,13 +16,28 @@ import aitchteeteepie.*
  * See https://www.eclipse.org/Xtext/documentation/303_runtime_concepts.html#code-generation
  */
 class CurlBetterThanHttpieGenerator extends AbstractGenerator {
-
+	private boolean formFlag=false;
+	
 	override void doGenerate(Resource res, IFileSystemAccess2 fsa, IGeneratorContext context) {
 		fsa.generateFile(res.URI.trimFileExtension.appendFileExtension("curl").lastSegment,
 			res.allContents.filter(CommandLineInterface).toIterable.head.compile.toString)
 	}
 	
 	def dispatch compile(CommandLineInterface req) {
+		
+		if(req.url==null){
+			req.url="localhost";
+		}
+		if (req.method==null){
+			req.method=Method.GET;
+		}
+		if (req.protocol==null){
+			req.protocol="https";
+		}
+		if(req.port==0){
+			req.port=8080;
+		}
+	
 		val flagsCmpl = req.flags.map[option | option.compile]
 		
 		val UrlParameterItem = req.items.filter[param | param.eClass.name.equals("UrlParameterItem")]
@@ -38,14 +53,16 @@ class CurlBetterThanHttpieGenerator extends AbstractGenerator {
 		val rawJsonFieldCmpl = RawJsonFieldItem.map[param | param.compile]
 		
 		var dataFieldsString = ""
-		if(dataFieldsCmpl.size > 0)
+		if(dataFieldsCmpl.size > 0 && !formFlag)
 			dataFieldsString = '-d "' + dataFieldsCmpl.join('&') + '"'
-			
+		else{
+			dataFieldsString = dataFieldsCmpl.join(' ')
+		}
 		var urlParametersString = ""
 		if(urlParametersCmpl.size > 0)
 			urlParametersString = '?' + urlParametersCmpl.join('&')
 		
-		'''curl «req.method.compile» «httpHeadersCmpl.join(' ')» «flagsCmpl.join(' ')» «req.url»«urlParametersString» «dataFieldsString»'''
+		'''curl «req.method.compile» «httpHeadersCmpl.join(' ')» «flagsCmpl.join(' ')» «req.protocol»://«req.url»:«req.port»«urlParametersString» «dataFieldsString»«formFieldsCmpl.join(' ')»'''
 	}
 	
 	def dispatch compile(VerboseFlag vb) '''-v'''
@@ -66,7 +83,10 @@ class CurlBetterThanHttpieGenerator extends AbstractGenerator {
 	
 	def dispatch compile(Method get) '''-X «get.getName()»'''
 	
-	def dispatch compile(FormFlag ff) '''#TODO'''
+	def dispatch compile(FormFlag ff){
+		formFlag=true;
+		'''Content-Type: application/x-www-form-urlencoded; charset=utf-8'''
+	}
 	
 	def dispatch compile(JsonFlag jf) '''-H "Content-Type: application/json"'''
 	
@@ -78,9 +98,15 @@ class CurlBetterThanHttpieGenerator extends AbstractGenerator {
 	
 	def dispatch compile(UrlParameterItem urlParam) '''«urlParam.field»=«urlParam.value»'''
 	
-	def dispatch compile(FormFileFieldItem formField) '''#TODO'''
+	def dispatch compile(FormFileFieldItem formField)''' -d "@«formField.value»"'''
 	
-	def dispatch compile(DataFieldItem data) '''«data.field»=«data.value»'''
+	def dispatch compile(DataFieldItem data){
+		if(formFlag)
+			''' -F «data.field»=«data.value»'''
+		else{
+			'''«data.field»=«data.value»'''
+		}
+	}
 	
 	def dispatch compile(RawJsonFieldItem rawJsonField) '''#TODO'''
 	
